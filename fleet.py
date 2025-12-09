@@ -163,7 +163,6 @@ class VehicleFleet:
         for i in reversed(vehicles_to_remove):
             removed_vehicle = self.vehicles.pop(i)
             self.controllers.pop(i)
-            print(f"Pojazd {removed_vehicle.id} został usunięty z symulacji")
     
     def add_vehicle(self, vehicle: Vehicle) -> VehicleController:
         """
@@ -183,9 +182,6 @@ class VehicleFleet:
         destination = self._get_random_destination(vehicle.current_intersection)
         if destination:
             controller.set_destination(destination)
-        
-        print(f"Pojazd {vehicle.id} spawned w {vehicle.current_intersection.name} "
-              f"(prędkość: {vehicle.speed:.1f} km/h)")
         
         return controller
     

@@ -150,8 +150,6 @@ class VehicleController:
         )
         
         if not path:
-            print(f"Nie znaleziono ścieżki z {self.vehicle.current_intersection.name} "
-                  f"do {destination.name}")
             return False
         
         # Ustaw ścieżkę i start
@@ -169,9 +167,6 @@ class VehicleController:
                 next_intersection.id
             )
             self.vehicle.current_road = road
-        
-        print(f"Pojazd {self.vehicle.id}: droga wyznaczona "
-              f"({' -> '.join(i.name for i in path)})")
         
         return True
     
@@ -221,7 +216,6 @@ class VehicleController:
             self.vehicle.state = VehicleState.ARRIVED
             self.vehicle.progress_on_road = 0.0
             self.vehicle.current_road = None
-            print(f"Pojazd {self.vehicle.id} dotarł do {self.vehicle.current_intersection.name}")
             return
         
         # Ustaw następną drogę (jeśli istnieje)
