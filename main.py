@@ -2,18 +2,16 @@
 Główny plik testowy sieciulatora ruchu drogowego.
 """
 
-from examples import create_example_network, print_network_info
+from examples import create_example_network
 from visualization import RoadNetworkVisualizer
 from fleet import VehicleFleet
 
 
 def main():
     """Główna funkcja programu."""
-    print("🚗 SYMULATOR RUCHU DROGOWEGO\n")
     
     # Utwórz sieć
     network = create_example_network()
-    print_network_info(network)
     
     # Utwórz wizualizację
     visualizer = RoadNetworkVisualizer()
@@ -32,13 +30,7 @@ def main():
         speed_min=40.0,
         speed_max=70.0
     )
-    
-    print(f"\n🚗 Spawner pojazydów w {spawn_point.name}")
-    print("   Interwał: 1-3 sekundy")
-    print("   Prędkość: 40-70 km/h")
-    
-    # Wyświetl wizualizację
-    print("\nOtwarcie wizualizacji pygame...")
+
     visualizer.run()
 
 
