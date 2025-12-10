@@ -21,6 +21,9 @@ class RoadNetworkVisualizer:
     COLOR_TEXT = (50, 50, 50)
     COLOR_ARROW = (150, 0, 0)
     COLOR_VEHICLE = (255, 50, 50)
+    COLOR_TRAFFIC_LIGHT_GREEN = (0, 255, 0)
+    COLOR_TRAFFIC_LIGHT_RED = (255, 0, 0)
+    COLOR_TRAFFIC_LIGHT_BORDER = (50, 50, 50)
     
     # Wymiary
     INTERSECTION_RADIUS = 12
@@ -192,6 +195,60 @@ class RoadNetworkVisualizer:
         text = self.font_small.render(str(intersection.id), True, self.COLOR_TEXT)
         text_rect = text.get_rect(center=(x, y))
         self.screen.blit(text, text_rect)
+        
+        # Rysuj sygnalizację świetlną jeśli istnieje
+        if intersection.traffic_light:
+            self._draw_traffic_light(x, y, intersection.traffic_light)
+        elif intersection.traffic_light_controller:
+            self._draw_traffic_light_controller(x, y, intersection.traffic_light_controller, intersection)
+    
+    def _draw_traffic_light(self, x: int, y: int, traffic_light):
+        """Rysuje sygnalizację świetlną przy skrzyżowaniu."""
+        # Pozycja światła (nad skrzyżowaniem)
+        light_x = x + 20
+        light_y = y - 20
+        light_radius = 8
+        
+        # Rysuj obramowanie
+        pygame.draw.rect(self.screen, self.COLOR_TRAFFIC_LIGHT_BORDER,
+                        (light_x - 12, light_y - 25, 24, 50), border_radius=5)
+        pygame.draw.rect(self.screen, (200, 200, 200),
+                        (light_x - 11, light_y - 24, 22, 48), border_radius=5)
+        
+        # Rysuj czerwone światło (góra)
+        red_color = self.COLOR_TRAFFIC_LIGHT_RED if traffic_light.is_red() else (100, 100, 100)
+        pygame.draw.circle(self.screen, red_color, (light_x, light_y - 10), light_radius)
+        
+        # Rysuj zielone światło (dół)
+        green_color = self.COLOR_TRAFFIC_LIGHT_GREEN if traffic_light.is_green() else (100, 100, 100)
+        pygame.draw.circle(self.screen, green_color, (light_x, light_y + 10), light_radius)
+    
+    def _draw_traffic_light_controller(self, x: int, y: int, controller, intersection):
+        """Rysuje kontroler sygnalizacji z wieloma fazami."""
+        current_phase = controller.get_current_phase()
+        
+        # Pobierz litery dozwolonych kierunków (ID skrzyżowań)
+        allowed_ids = current_phase.allowed_directions
+        allowed_text = ", ".join(str(id) for id in sorted(allowed_ids))
+        
+        # Pozycja nad skrzyżowaniem
+        label_x = x + 25
+        label_y = y - 25
+        
+        # Rysuj tło dla tekstu
+        bg_width = 40
+        bg_height = 20
+        pygame.draw.rect(self.screen, self.COLOR_TRAFFIC_LIGHT_GREEN,
+                        (label_x - bg_width//2, label_y - bg_height//2, bg_width, bg_height), 
+                        border_radius=3)
+        pygame.draw.rect(self.screen, self.COLOR_TRAFFIC_LIGHT_BORDER,
+                        (label_x - bg_width//2, label_y - bg_height//2, bg_width, bg_height), 
+                        width=2, border_radius=3)
+        
+        # Rysuj tekst z dozwolonymi kierunkami
+        text = self.font_small.render(allowed_text, True, (0, 0, 0))
+        text_rect = text.get_rect(center=(label_x, label_y))
+        self.screen.blit(text, text_rect)
     
     def _draw_vehicle(self, vehicle: Vehicle):
         """Rysuje samochód na ekranie."""
@@ -291,6 +348,14 @@ class RoadNetworkVisualizer:
             
             # Aktualizuj pojazdy
             self.update_vehicles(delta_time)
+            
+            # Aktualizuj sygnalizacje świetlne
+            if self.network:
+                for intersection in self.network.get_all_intersections():
+                    if intersection.traffic_light:
+                        intersection.traffic_light.update(delta_time)
+                    if intersection.traffic_light_controller:
+                        intersection.traffic_light_controller.update(delta_time)
             
             # Rysuj tło
             self.screen.fill(self.COLOR_BACKGROUND)

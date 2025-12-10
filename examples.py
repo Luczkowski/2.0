@@ -2,7 +2,7 @@
 Przykłady wykorzystania grafu sieci drogowej.
 """
 
-from graph import RoadNetwork
+from graph import RoadNetwork, TrafficLight, TrafficLightState, TrafficLightController, TrafficLightPhase
 
 
 def create_example_network() -> RoadNetwork:
@@ -15,6 +15,17 @@ def create_example_network() -> RoadNetwork:
     C = network.add_intersection("Skrzyżowanie C", 100, 100)
     D = network.add_intersection("Skrzyżowanie D", 0, 100)
     
+    # Skrzyżowanie C nie może być celem (tylko punkt pośredni)
+    C.is_destination = False
+    
+    # Dodaj sygnalizację świetlną na skrzyżowaniu C z fazami
+    # Faza 1: Pojazdy z B mogą jechać przez 5 sekund
+    # Faza 2: Pojazdy z A (przez diagonal) mogą jechać przez 5 sekund
+    C.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={B.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={A.id}, duration=5.0)
+    ])
+    
     # Dodaj drogi
     network.add_road(
         from_id=A.id,
@@ -24,13 +35,13 @@ def create_example_network() -> RoadNetwork:
         lanes=2
     )
 
-    network.add_road(
-        from_id=B.id,
-        to_id=A.id,
-        length=100,
-        speed_limit=50,
-        lanes=2
-    )
+    # network.add_road(
+    #     from_id=B.id,
+    #     to_id=A.id,
+    #     length=100,
+    #     speed_limit=50,
+    #     lanes=2
+    # )
     
     network.add_road(
         from_id=B.id,

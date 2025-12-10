@@ -126,6 +126,7 @@ class VehicleController:
         """
         self.vehicle = vehicle
         self.network = network
+        self.other_vehicles: List[Vehicle] = []  # Lista innych pojazdów do sprawdzania kolizji
     
     def set_destination(self, destination: Intersection) -> bool:
         """
@@ -183,14 +184,42 @@ class VehicleController:
         if not self.vehicle.current_road:
             return
         
+        # Sprawdź czy na następnym skrzyżowaniu jest czerwone światło
+        next_intersection = self.vehicle.path[self.vehicle.current_path_index + 1]
+        current_intersection = self.vehicle.current_intersection
+        
+        has_red_light = False
+        if next_intersection.traffic_light_controller:
+            # Nowy system z fazami
+            has_red_light = next_intersection.traffic_light_controller.is_red_for_direction(current_intersection.id)
+        elif next_intersection.traffic_light:
+            # Stary system
+            has_red_light = next_intersection.traffic_light.is_red_for_direction(current_intersection.id)
+        
         # Oblicz, jaką odległość pojazd pokonał
         # speed jest w km/h, delta_time w sekundach
         speed_m_s = self.vehicle.speed * 1000 / 3600  # konwersja km/h na m/s
         distance_traveled = speed_m_s * delta_time
         road_length = self.vehicle.current_road.length
         
+        # Sprawdź czy jest pojazd przed nami na tej samej drodze
+        min_safe_distance = 0.03  # 3% długości drogi jako minimalna bezpieczna odległość
+        vehicle_ahead_progress = self._check_vehicle_ahead()
+        
         # Aktualizuj postęp
-        self.vehicle.progress_on_road += distance_traveled / road_length
+        proposed_progress = self.vehicle.progress_on_road + distance_traveled / road_length
+        
+        # Sprawdź kolizję z pojazdem przed nami
+        if vehicle_ahead_progress is not None:
+            max_progress = vehicle_ahead_progress - min_safe_distance
+            proposed_progress = min(proposed_progress, max_progress)
+        
+        # Jeśli jest czerwone światło, zatrzymaj się przed skrzyżowaniem
+        if has_red_light:
+            max_red_light_progress = 0.95
+            proposed_progress = min(proposed_progress, max_red_light_progress)
+        
+        self.vehicle.progress_on_road = proposed_progress
         
         # Sprawdzenie czy pojazd dotarł do następnego skrzyżowania
         # Może być konieczne przesunięcie się o kilka wierzchołków w jednym frame
@@ -199,6 +228,33 @@ class VehicleController:
             # Jeśli dotarł do celu, przerwij pętlę
             if self.vehicle.state == VehicleState.ARRIVED:
                 break
+    
+    def _check_vehicle_ahead(self) -> Optional[float]:
+        """
+        Sprawdza czy jest pojazd przed nami na tej samej drodze.
+        
+        Returns:
+            Progress pojazdu przed nami lub None jeśli nie ma pojazdu
+        """
+        if not self.vehicle.current_road:
+            return None
+        
+        min_progress_ahead = None
+        
+        for other in self.other_vehicles:
+            # Ignoruj siebie
+            if other.id == self.vehicle.id:
+                continue
+            
+            # Sprawdź czy jest na tej samej drodze
+            if (other.current_road and 
+                other.current_road.id == self.vehicle.current_road.id):
+                # Sprawdź czy jest przed nami
+                if other.progress_on_road > self.vehicle.progress_on_road:
+                    if min_progress_ahead is None or other.progress_on_road < min_progress_ahead:
+                        min_progress_ahead = other.progress_on_road
+        
+        return min_progress_ahead
     
     def _move_to_next_intersection(self):
         """Przenosi pojazd na następne skrzyżowanie w ścieżce."""
@@ -219,6 +275,12 @@ class VehicleController:
             return
         
         # Ustaw następną drogę (jeśli istnieje)
+        next_intersection = self.vehicle.path[self.vehicle.current_path_index + 1]
+        road = self.network.get_road_between(
+            self.vehicle.current_intersection.id,
+            next_intersection.id
+        )
+        self.vehicle.current_road = road
         next_intersection = self.vehicle.path[self.vehicle.current_path_index + 1]
         road = self.network.get_road_between(
             self.vehicle.current_intersection.id,

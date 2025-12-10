@@ -30,6 +30,15 @@ def main():
         speed_min=40.0,
         speed_max=70.0
     )
+    
+    spawn_point2 = network.get_intersection(1)
+    fleet.add_spawner(
+        spawn_intersection=spawn_point2,
+        spawn_interval_min=1.0,
+        spawn_interval_max=3.0,
+        speed_min=40.0,
+        speed_max=70.0
+    )
 
     visualizer.run()
 
