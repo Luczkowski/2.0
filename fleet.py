@@ -48,14 +48,16 @@ class VehicleSpawner:
         """
         Wybiera losowe skrzyżowanie jako cel.
         Unika spawnu jako celu (jeśli sieć ma więcej niż 1 skrzyżowanie).
+        Wybiera tylko skrzyżowania które mogą być celami (is_destination=True).
         """
         all_intersections = self.network.get_all_intersections()
         
         if len(all_intersections) <= 1:
             return None
         
-        # Wybierz losowe, ale nie spawn_intersection
-        available = [i for i in all_intersections if i.id != self.spawn_intersection.id]
+        # Wybierz losowe, ale nie spawn_intersection i tylko te które mogą być celami
+        available = [i for i in all_intersections 
+                    if i.id != self.spawn_intersection.id and i.is_destination]
         return random.choice(available) if available else None
     
     def update(self, delta_time: float) -> Optional[Vehicle]:
@@ -149,6 +151,10 @@ class VehicleFleet:
             if new_vehicle:
                 self.add_vehicle(new_vehicle)
         
+        # Zaktualizuj listę innych pojazdów dla każdego kontrolera
+        for controller in self.controllers:
+            controller.other_vehicles = self.vehicles
+        
         # Aktualizuj istniejące pojazdy
         for controller in self.controllers:
             controller.update(delta_time)
@@ -188,9 +194,11 @@ class VehicleFleet:
     def _get_random_destination(self, exclude_intersection: Intersection) -> Optional[Intersection]:
         """
         Wybiera losowy cel, unikając danego skrzyżowania.
+        Wybiera tylko skrzyżowania które mogą być celami (is_destination=True).
         """
         all_intersections = self.network.get_all_intersections()
-        available = [i for i in all_intersections if i.id != exclude_intersection.id]
+        available = [i for i in all_intersections 
+                    if i.id != exclude_intersection.id and i.is_destination]
         return random.choice(available) if available else None
     
     def get_vehicles(self) -> List[Vehicle]:

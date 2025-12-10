@@ -5,6 +5,126 @@ Wierzchołki to skrzyżowania, krawędzie to drogi.
 
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class TrafficLightState(Enum):
+    """Stany sygnalizacji świetlnej."""
+    GREEN = "green"
+    RED = "red"
+
+
+@dataclass
+class TrafficLightPhase:
+    """Reprezentuje jedną fazę sygnalizacji (które kierunki mają zielone)."""
+    allowed_directions: Set[int]  # ID skrzyżowań z których można wjechać
+    duration: float  # Czas trwania fazy w sekundach
+
+
+class TrafficLightController:
+    """Kontroler sygnalizacji świetlnej z wieloma fazami."""
+    
+    def __init__(self, phases: List[TrafficLightPhase]):
+        """
+        Inicjalizuje kontroler świateł.
+        
+        Args:
+            phases: Lista faz świateł (kolejność definiuje cykl)
+        """
+        self.phases = phases
+        self.current_phase_index = 0
+        self.time_in_phase = 0.0
+    
+    def update(self, delta_time: float):
+        """Aktualizuje kontroler i przełącza fazy."""
+        self.time_in_phase += delta_time
+        
+        current_phase = self.phases[self.current_phase_index]
+        if self.time_in_phase >= current_phase.duration:
+            # Przejdź do następnej fazy
+            self.current_phase_index = (self.current_phase_index + 1) % len(self.phases)
+            self.time_in_phase = 0.0
+    
+    def is_green_for_direction(self, from_intersection_id: int) -> bool:
+        """
+        Sprawdza czy dany kierunek ma zielone światło.
+        
+        Args:
+            from_intersection_id: ID skrzyżowania z którego nadjeżdża pojazd
+            
+        Returns:
+            True jeśli zielone dla tego kierunku
+        """
+        current_phase = self.phases[self.current_phase_index]
+        return from_intersection_id in current_phase.allowed_directions
+    
+    def is_red_for_direction(self, from_intersection_id: int) -> bool:
+        """
+        Sprawdza czy dany kierunek ma czerwone światło.
+        
+        Args:
+            from_intersection_id: ID skrzyżowania z którego nadjeżdża pojazd
+            
+        Returns:
+            True jeśli czerwone dla tego kierunku
+        """
+        return not self.is_green_for_direction(from_intersection_id)
+    
+    def get_current_phase(self) -> TrafficLightPhase:
+        """Zwraca aktualną fazę."""
+        return self.phases[self.current_phase_index]
+
+
+@dataclass
+class TrafficLight:
+    """Reprezentuje sygnalizację świetlną z kontrolą kierunków (deprecated - użyj TrafficLightController)."""
+    
+    state: TrafficLightState = TrafficLightState.GREEN
+    green_duration: float = 10.0  # Czas świecenia zielonego (sekundy)
+    red_duration: float = 5.0      # Czas świecenia czerwonego (sekundy)
+    time_in_state: float = 0.0     # Czas w aktualnym stanie
+    allowed_directions: Optional[Set[int]] = None  # ID skrzyżowań z których można wjechać (None = wszystkie)
+    
+    def update(self, delta_time: float):
+        """Aktualizuje stan sygnalizacji."""
+        self.time_in_state += delta_time
+        
+        # Sprawdź czy pora zmienić stan
+        if self.state == TrafficLightState.GREEN and self.time_in_state >= self.green_duration:
+            self.state = TrafficLightState.RED
+            self.time_in_state = 0.0
+        elif self.state == TrafficLightState.RED and self.time_in_state >= self.red_duration:
+            self.state = TrafficLightState.GREEN
+            self.time_in_state = 0.0
+    
+    def is_red(self) -> bool:
+        """Sprawdza czy światło jest czerwone."""
+        return self.state == TrafficLightState.RED
+    
+    def is_green(self) -> bool:
+        """Sprawdza czy światło jest zielone."""
+        return self.state == TrafficLightState.GREEN
+    
+    def is_red_for_direction(self, from_intersection_id: int) -> bool:
+        """
+        Sprawdza czy światło jest czerwone dla danego kierunku.
+        
+        Args:
+            from_intersection_id: ID skrzyżowania z którego nadjeżdża pojazd
+            
+        Returns:
+            True jeśli czerwone dla tego kierunku
+        """
+        if self.allowed_directions is None:
+            # Brak ograniczeń kierunkowych - standardowe światło
+            return self.is_red()
+        
+        # Jeśli światło jest zielone i kierunek jest dozwolony
+        if self.is_green() and from_intersection_id in self.allowed_directions:
+            return False
+        
+        # W przeciwnym razie czerwone
+        return True
 
 
 @dataclass
@@ -15,6 +135,9 @@ class Intersection:
     name: str
     x: float
     y: float
+    traffic_light: Optional[TrafficLight] = None
+    traffic_light_controller: Optional[TrafficLightController] = None
+    is_destination: bool = True  # Czy skrzyżowanie może być celem podróży
     
     def __repr__(self) -> str:
         return f"Intersection(id={self.id}, name='{self.name}', pos=({self.x}, {self.y}))"
