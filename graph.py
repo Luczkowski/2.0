@@ -35,6 +35,43 @@ class TrafficLightController:
         self.current_phase_index = 0
         self.time_in_phase = 0.0
     
+    def adjust_phase_duration(self, phase_index: int, delta: float):
+        """
+        Dynamicznie zmienia czas trwania danej fazy.
+        
+        Args:
+            phase_index: Indeks fazy do zmiany
+            delta: Zmiana czasu w sekundach (może być ujemna)
+        """
+        if 0 <= phase_index < len(self.phases):
+            new_duration = max(1.0, self.phases[phase_index].duration + delta)
+            self.phases[phase_index].duration = new_duration
+    
+    def set_phase_duration(self, phase_index: int, duration: float):
+        """
+        Ustawia czas trwania danej fazy.
+        
+        Args:
+            phase_index: Indeks fazy do zmiany
+            duration: Nowy czas trwania w sekundach
+        """
+        if 0 <= phase_index < len(self.phases):
+            self.phases[phase_index].duration = max(1.0, duration)
+    
+    def get_phase_info(self) -> str:
+        """
+        Zwraca informacje o wszystkich fazach.
+        
+        Returns:
+            Tekst z informacjami o fazach i ich czasach
+        """
+        info = []
+        for i, phase in enumerate(self.phases):
+            dirs = ", ".join(str(d) for d in sorted(phase.allowed_directions))
+            marker = "→" if i == self.current_phase_index else " "
+            info.append(f"{marker} Faza {i}: {phase.duration:.1f}s (kierunki: {dirs})")
+        return "\n".join(info)
+    
     def update(self, delta_time: float):
         """Aktualizuje kontroler i przełącza fazy."""
         self.time_in_phase += delta_time
