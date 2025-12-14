@@ -289,6 +289,17 @@ class RoadNetwork:
         self._road_counter += 1
         return road
     
+    def add_two_way_road(self,
+                 from_id: int,
+                 to_id: int,
+                 length: float,
+                 speed_limit: float,
+                 lanes: int = 1) -> Road:
+        
+        road_1_to_2 = self.add_road(from_id, to_id, length, speed_limit, lanes)
+        road_2_to_1 = self.add_road(to_id, from_id, length, speed_limit, lanes)
+        return (road_1_to_2, road_2_to_1)
+    
     def get_intersection(self, intersection_id: int) -> Optional[Intersection]:
         """Zwraca skrzyżowanie o danym ID."""
         return self.intersections.get(intersection_id)

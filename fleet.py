@@ -105,11 +105,9 @@ class VehicleFleet:
         self.controllers: List[VehicleController] = []
         self.spawners: List[VehicleSpawner] = []
     
-    def add_spawner(self,
-                    spawn_intersection: Intersection,
-                    spawn_rate = 0.5,
-                    speed_min: float = 30.0,
-                    speed_max: float = 80.0) -> VehicleSpawner:
+    def add_spawner(self, 
+                    spawn_intersection: Intersection
+                    ) -> VehicleSpawner:
         """
         Dodaje generator pojazdów.
         
@@ -124,10 +122,7 @@ class VehicleFleet:
         """
         spawner = VehicleSpawner(
             spawn_intersection=spawn_intersection,
-            network=self.network,
-            spawn_rate=spawn_rate,
-            speed_min=speed_min,
-            speed_max=speed_max
+            network=self.network
         )
         self.spawners.append(spawner)
         return spawner
