@@ -141,6 +141,36 @@ class RoadNetworkVisualizer:
         x1, y1 = self._world_to_screen(road.from_intersection.x, road.from_intersection.y)
         x2, y2 = self._world_to_screen(road.to_intersection.x, road.to_intersection.y)
         
+        # Sprawdź czy istnieje droga w przeciwnym kierunku (dwukierunkowa)
+        has_reverse = False
+        if self.network:
+            reverse_road = self.network.get_road_between(road.to_intersection.id, road.from_intersection.id)
+            has_reverse = reverse_road is not None
+        
+        # Jeśli droga jest dwukierunkowa, przesuń ją o połowę szerokości na bok
+        if has_reverse:
+            # Oblicz wektor prostopadły do drogi
+            dx = x2 - x1
+            dy = y2 - y1
+            length = math.sqrt(dx**2 + dy**2)
+            
+            if length > 0:
+                # Znormalizuj wektor
+                dx /= length
+                dy /= length
+                
+                # Wektor prostopadły (obrót o 90 stopni)
+                perp_dx = -dy
+                perp_dy = dx
+                
+                # Przesunięcie (połowa szerokości drogi)
+                offset = self.ROAD_WIDTH
+                
+                x1 += perp_dx * offset
+                y1 += perp_dy * offset
+                x2 += perp_dx * offset
+                y2 += perp_dy * offset
+        
         # Rysuj główną linię drogi
         pygame.draw.line(self.screen, self.COLOR_ROAD, (x1, y1), (x2, y2), self.ROAD_WIDTH)
         
@@ -260,7 +290,41 @@ class RoadNetworkVisualizer:
     def _draw_vehicle(self, vehicle: Vehicle):
         """Rysuje samochód na ekranie."""
         vx, vy = vehicle.get_current_position()
-        x, y = self._world_to_screen(vx, vy)
+        
+        # Oblicz przesunięcie dla drogi dwukierunkowej
+        offset_x, offset_y = 0, 0
+        if vehicle.current_road and self.network:
+            # Sprawdź czy droga jest dwukierunkowa
+            reverse_road = self.network.get_road_between(
+                vehicle.current_road.to_intersection.id,
+                vehicle.current_road.from_intersection.id
+            )
+            
+            if reverse_road is not None:
+                # Oblicz wektor prostopadły do drogi (w współrzędnych świata)
+                dx = (vehicle.current_road.to_intersection.x - 
+                      vehicle.current_road.from_intersection.x)
+                dy = (vehicle.current_road.to_intersection.y - 
+                      vehicle.current_road.from_intersection.y)
+                length = math.sqrt(dx**2 + dy**2)
+                
+                if length > 0:
+                    # Znormalizuj wektor
+                    dx /= length
+                    dy /= length
+                    
+                    # Wektor prostopadły (obrót o 90 stopni)
+                    perp_dx = -dy
+                    perp_dy = dx
+                    
+                    # Przesunięcie (połowa szerokości drogi)
+                    offset = self.ROAD_WIDTH / self.scale
+                    
+                    offset_x = perp_dx * offset
+                    offset_y = perp_dy * offset
+        
+        # Zastosuj przesunięcie do pozycji pojazdu
+        x, y = self._world_to_screen(vx + offset_x, vy + offset_y)
         
         # Rysuj pojazd jako prostokąt
         vehicle_width = 16
@@ -286,9 +350,9 @@ class RoadNetworkVisualizer:
         self.screen.blit(rotated_surface, rotated_rect)
         
         # Rysuj ID pojazdu
-        text = self.font_small.render(f"V{vehicle.id}", True, self.COLOR_TEXT)
-        text_rect = text.get_rect(center=(x, y - 15))
-        self.screen.blit(text, text_rect)
+        # text = self.font_small.render(f"V{vehicle.id}", True, self.COLOR_TEXT)
+        # text_rect = text.get_rect(center=(x, y - 15))
+        # self.screen.blit(text, text_rect)
     
     def _update_hover(self, mouse_x: int, mouse_y: int):
         """Aktualizuje informację o najechaniu myszką na skrzyżowanie."""
