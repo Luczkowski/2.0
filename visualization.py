@@ -324,7 +324,7 @@ class RoadNetworkVisualizer:
             "[1-9] - wybierz fazę",
             "+ / - - zmień czas fazy (±1s)",
             "SHIFT + / - - zmień o ±5s",
-            "[ / ] - zmodyfikuj spawner"
+            "[ / ] - zmień częstotliwość spawnu"
         ]
         
         y_offset = 10
@@ -355,8 +355,7 @@ class RoadNetworkVisualizer:
             for idx, spawner in enumerate(spawners):
                 text = (
                     f"#{idx} "
-                    f"min={spawner.spawn_interval_min:.1f}s"
-                    f"max={spawner.spawn_interval_max:.1f}s"
+                    f"rate={spawner.spawn_rate:.2f} pojazdów/s"
                 )
                 self.screen.blit(
                     self.font_small.render(text, True, self.COLOR_TEXT),
@@ -453,10 +452,10 @@ class RoadNetworkVisualizer:
                         self._adjust_selected_light_phase(selected_phase,
                                                           -5.0 if pygame.key.get_mods() & pygame.KMOD_SHIFT else -1.0)
                     elif event.key == pygame.K_LEFTBRACKET:  # [
-                        self._adjust_selected_spawner_max_interval(-0.5)
+                        self._adjust_selected_spawner_rate(-0.1)
 
                     elif event.key == pygame.K_RIGHTBRACKET:  # ]
-                        self._adjust_selected_spawner_max_interval(0.5)
+                        self._adjust_selected_spawner_rate(0.1)
                 elif event.type == pygame.MOUSEMOTION:
                     self._update_hover(event.pos[0], event.pos[1])
                 elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -532,17 +531,11 @@ class RoadNetworkVisualizer:
             if spawner.spawn_intersection.id == self.selected_intersection
         ]
 
-    def _adjust_selected_spawner_max_interval(self, delta: float):
-        """Zwiększa lub zmniejsza spawn_interval_max dla spawnerów wybranego skrzyżowania."""
+    def _adjust_selected_spawner_rate(self, delta: float):
+        """Zwiększa lub zmniejsza częstotliwość spawnu (λ) dla wybranego skrzyżowania."""
         if not self.fleet or self.selected_intersection is None:
             return
 
         for spawner in self.fleet.spawners:
             if spawner.spawn_intersection.id == self.selected_intersection:
-                new_value = spawner.spawn_interval_max + delta
-
-                # zabezpieczenie przed wartościami <= 0
-                spawner.spawn_interval_max = max(0.1, new_value)
-
-                # wymuś natychmiastowe przeliczenie czasu do kolejnego spawnu
-                spawner.next_spawn_interval = spawner._random_interval()
+                spawner.spawn_rate = max(0.0, spawner.spawn_rate + delta)
