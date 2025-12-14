@@ -14,8 +14,7 @@ class VehicleSpawner:
     def __init__(self,
                  spawn_intersection: Intersection,
                  network: RoadNetwork,
-                 spawn_interval_min: float = 1.0,
-                 spawn_interval_max: float = 3.0,
+                 spawn_rate: float = 0.5,
                  speed_min: float = 30.0,
                  speed_max: float = 80.0):
         """
@@ -24,25 +23,26 @@ class VehicleSpawner:
         Args:
             spawn_intersection: Skrzyżowanie, gdzie pojawiają się pojazdy
             network: Sieć drogowa
-            spawn_interval_min: Minimalny interwał spawnu (sekundy)
-            spawn_interval_max: Maksymalny interwał spawnu (sekundy)
+            spawn_rate: Średnia liczba pojazdów na sekundę (λ)
             speed_min: Minimalna prędkość pojazdu (km/h)
             speed_max: Maksymalna prędkość pojazdu (km/h)
         """
         self.spawn_intersection = spawn_intersection
         self.network = network
-        self.spawn_interval_min = spawn_interval_min
-        self.spawn_interval_max = spawn_interval_max
+        self.spawn_rate = spawn_rate
         self.speed_min = speed_min
         self.speed_max = speed_max
         
         self.time_since_last_spawn = 0.0
-        self.next_spawn_interval = self._random_interval()
+        self.next_spawn_interval = self._next_interval()
         self.vehicle_id_counter = 0
-    
-    def _random_interval(self) -> float:
-        """Generuje losowy interwał spawnu."""
-        return random.uniform(self.spawn_interval_min, self.spawn_interval_max)
+
+    def _next_interval(self) -> float:
+        """Generuj interwał używając rozkładu Poissona"""
+        if self.spawn_rate <= 0:
+            return float("inf")
+
+        return random.expovariate(self.spawn_rate)
     
     def _get_random_destination(self) -> Optional[Intersection]:
         """
@@ -74,7 +74,7 @@ class VehicleSpawner:
         
         if self.time_since_last_spawn >= self.next_spawn_interval:
             self.time_since_last_spawn = 0.0
-            self.next_spawn_interval = self._random_interval()
+            self.next_spawn_interval = self._next_interval()
             
             # Utwórz nowy pojazd
             speed = random.uniform(self.speed_min, self.speed_max)
@@ -107,8 +107,7 @@ class VehicleFleet:
     
     def add_spawner(self,
                     spawn_intersection: Intersection,
-                    spawn_interval_min: float = 1.0,
-                    spawn_interval_max: float = 3.0,
+                    spawn_rate = 0.5,
                     speed_min: float = 30.0,
                     speed_max: float = 80.0) -> VehicleSpawner:
         """
@@ -116,8 +115,7 @@ class VehicleFleet:
         
         Args:
             spawn_intersection: Skrzyżowanie spawnu
-            spawn_interval_min: Minimalny interwał
-            spawn_interval_max: Maksymalny interwał
+            spawn_rate: Średnia liczba pojawiających się pojazdów
             speed_min: Minimalna prędkość
             speed_max: Maksymalna prędkość
         
@@ -127,8 +125,7 @@ class VehicleFleet:
         spawner = VehicleSpawner(
             spawn_intersection=spawn_intersection,
             network=self.network,
-            spawn_interval_min=spawn_interval_min,
-            spawn_interval_max=spawn_interval_max,
+            spawn_rate=spawn_rate,
             speed_min=speed_min,
             speed_max=speed_max
         )

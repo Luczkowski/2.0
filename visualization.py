@@ -61,6 +61,13 @@ class RoadNetworkVisualizer:
         # Flota pojazdów
         self.fleet = None
         
+        # Kontrola świateł
+        self.selected_intersection: int | None = None
+        self.show_light_controls = False
+
+        # Kontrola spawnera
+        self.show_spawn_controls: bool = False
+        
 
     def load_network(self, network: RoadNetwork, auto_scale: bool = True):
         """
@@ -312,7 +319,12 @@ class RoadNetworkVisualizer:
             "",
             "Sterowanie:",
             "ESC - zamknij",
-            "Najdź myszkę nad skrzyżowanie aby zobaczyć szczegóły"
+            "Kliknij skrzyżowanie - wybierz",
+            "T - pokaż/ukryj kontrolę świateł",
+            "[1-9] - wybierz fazę",
+            "+ / - - zmień czas fazy (±1s)",
+            "SHIFT + / - - zmień o ±5s",
+            "[ / ] - zmień częstotliwość spawnu"
         ]
         
         y_offset = 10
@@ -329,10 +341,91 @@ class RoadNetworkVisualizer:
                 detail_text = f"{intersection.name} ({len(outgoing)} wychodzących dróg)"
                 text = self.font.render(detail_text, True, self.COLOR_INTERSECTION)
                 self.screen.blit(text, (10, self.height - 40))
+
+        # Informacje o spawnerach
+        if self.selected_intersection is not None:
+            spawners = self._get_spawners_for_selected_intersection()
+            y_offset += 10
+            self.screen.blit(
+                self.font.render("Spawners:", True, self.COLOR_TEXT),
+                (10, y_offset)
+            )
+            y_offset += 20
+
+            for idx, spawner in enumerate(spawners):
+                text = (
+                    f"#{idx} "
+                    f"rate={spawner.spawn_rate:.2f} pojazdów/s"
+                )
+                self.screen.blit(
+                    self.font_small.render(text, True, self.COLOR_TEXT),
+                    (10, y_offset)
+                )
+                y_offset += 18
+    
+    def _draw_light_control_panel(self):
+        """Rysuje panel kontroli świateł dla wybranego skrzyżowania."""
+        if not self.show_light_controls or self.selected_intersection is None:
+            return
+        
+        intersection = self.network.get_intersection(self.selected_intersection)
+        if not intersection or not intersection.traffic_light_controller:
+            return
+        
+        controller = intersection.traffic_light_controller
+        
+        # Panel na prawej stronie
+        panel_x = self.width - 300
+        panel_y = 10
+        panel_width = 290
+        panel_height = 200
+        
+        # Tło panelu
+        pygame.draw.rect(self.screen, (240, 240, 220),
+                        (panel_x, panel_y, panel_width, panel_height),
+                        border_radius=10)
+        pygame.draw.rect(self.screen, (100, 100, 100),
+                        (panel_x, panel_y, panel_width, panel_height),
+                        width=2, border_radius=10)
+        
+        # Nagłówek
+        title = f"Kontrola: {intersection.name}"
+        text = self.font.render(title, True, (0, 0, 0))
+        self.screen.blit(text, (panel_x + 10, panel_y + 10))
+        
+        # Informacje o fazach
+        y = panel_y + 40
+        for i, phase in enumerate(controller.phases):
+            dirs = ", ".join(str(d) for d in sorted(phase.allowed_directions))
+            is_current = i == controller.current_phase_index
+            
+            # Kolor tła dla aktywnej fazy
+            if is_current:
+                pygame.draw.rect(self.screen, (200, 255, 200),
+                               (panel_x + 5, y - 2, panel_width - 10, 22),
+                               border_radius=3)
+            
+            marker = "→" if is_current else " "
+            phase_text = f"{marker} [{i+1}] Faza {i}: {phase.duration:.1f}s"
+            text = self.font_small.render(phase_text, True, (0, 0, 0))
+            self.screen.blit(text, (panel_x + 10, y))
+            
+            y += 20
+            dir_text = f"    Kierunki: {dirs}"
+            text = self.font_small.render(dir_text, True, (60, 60, 60))
+            self.screen.blit(text, (panel_x + 10, y))
+            y += 25
+        
+        # Instrukcje
+        y = panel_y + panel_height - 30
+        instr_text = "Wybierz [1-9], +/- zmień czas"
+        text = self.font_small.render(instr_text, True, (100, 100, 100))
+        self.screen.blit(text, (panel_x + 10, y))
     
     def run(self):
         """Główna pętla wizualizacji."""
         running = True
+        selected_phase = 0  # Aktualnie wybrana faza do edycji
         
         while running:
             delta_time = self.clock.tick(60) / 1000.0  # Czas w sekundach
@@ -343,8 +436,35 @@ class RoadNetworkVisualizer:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    elif event.key == pygame.K_t:
+                        # Toggle panel kontroli
+                        self.show_light_controls = not self.show_light_controls
+                    elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4,
+                                     pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
+                        # Wybór fazy (1-9)
+                        selected_phase = event.key - pygame.K_1
+                    elif event.key in [pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS]:
+                        # Zwiększ czas fazy
+                        self._adjust_selected_light_phase(selected_phase, 
+                                                          5.0 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 1.0)
+                    elif event.key in [pygame.K_MINUS, pygame.K_KP_MINUS]:
+                        # Zmniejsz czas fazy
+                        self._adjust_selected_light_phase(selected_phase,
+                                                          -5.0 if pygame.key.get_mods() & pygame.KMOD_SHIFT else -1.0)
+                    elif event.key == pygame.K_LEFTBRACKET:  # [
+                        self._adjust_selected_spawner_rate(-0.1)
+
+                    elif event.key == pygame.K_RIGHTBRACKET:  # ]
+                        self._adjust_selected_spawner_rate(0.1)
                 elif event.type == pygame.MOUSEMOTION:
                     self._update_hover(event.pos[0], event.pos[1])
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Lewy przycisk myszy
+                        # Wybierz skrzyżowanie
+                        if self.hovered_intersection is not None:
+                            self.selected_intersection = self.hovered_intersection
+                            self.show_light_controls = True
+                            selected_phase = 0
             
             # Aktualizuj pojazdy
             self.update_vehicles(delta_time)
@@ -378,7 +498,44 @@ class RoadNetworkVisualizer:
             # Rysuj panel informacyjny
             self._draw_info_panel()
             
+            # Rysuj panel kontroli świateł
+            self._draw_light_control_panel()
+            
             # Zaktualizuj ekran
             pygame.display.flip()
         
         pygame.quit()
+    
+    def _adjust_selected_light_phase(self, phase_index: int, delta: float):
+        """Dostosowuje czas trwania fazy dla wybranego skrzyżowania."""
+        if self.selected_intersection is None:
+            return
+        
+        intersection = self.network.get_intersection(self.selected_intersection)
+        if not intersection or not intersection.traffic_light_controller:
+            return
+        
+        controller = intersection.traffic_light_controller
+        if 0 <= phase_index < len(controller.phases):
+            controller.adjust_phase_duration(phase_index, delta)
+            print(f"Faza {phase_index} skrzyżowania {intersection.name}: "
+                  f"{controller.phases[phase_index].duration:.1f}s")
+
+    def _get_spawners_for_selected_intersection(self):
+        if not self.fleet or self.selected_intersection is None:
+            return []
+
+        return [
+            spawner
+            for spawner in self.fleet.spawners
+            if spawner.spawn_intersection.id == self.selected_intersection
+        ]
+
+    def _adjust_selected_spawner_rate(self, delta: float):
+        """Zwiększa lub zmniejsza częstotliwość spawnu (λ) dla wybranego skrzyżowania."""
+        if not self.fleet or self.selected_intersection is None:
+            return
+
+        for spawner in self.fleet.spawners:
+            if spawner.spawn_intersection.id == self.selected_intersection:
+                spawner.spawn_rate = max(0.0, spawner.spawn_rate + delta)
