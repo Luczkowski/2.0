@@ -6,6 +6,7 @@ Wierzchołki to skrzyżowania, krawędzie to drogi.
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 
 
 class TrafficLightState(Enum):
@@ -252,16 +253,15 @@ class RoadNetwork:
     def add_road(self,
                  from_id: int,
                  to_id: int,
-                 length: float,
                  speed_limit: float,
                  lanes: int = 1) -> Road:
         """
         Dodaje nową drogę między dwoma skrzyżowaniami.
+        Długość drogi jest automatycznie obliczana na podstawie współrzędnych skrzyżowań.
         
         Args:
             from_id: ID skrzyżowania początkowego
             to_id: ID skrzyżowania końcowego
-            length: Długość drogi w metrach
             speed_limit: Ograniczenie prędkości w km/h
             lanes: Liczba pasów ruchu
         
@@ -276,10 +276,18 @@ class RoadNetwork:
                 f"Jedno ze skrzyżowań nie istnieje (from_id={from_id}, to_id={to_id})"
             )
         
+        # Oblicz długość drogi na podstawie współrzędnych skrzyżowań
+        from_intersection = self.intersections[from_id]
+        to_intersection = self.intersections[to_id]
+        length = math.sqrt(
+            (to_intersection.x - from_intersection.x) ** 2 +
+            (to_intersection.y - from_intersection.y) ** 2
+        )
+        
         road = Road(
             id=self._road_counter,
-            from_intersection=self.intersections[from_id],
-            to_intersection=self.intersections[to_id],
+            from_intersection=from_intersection,
+            to_intersection=to_intersection,
             length=length,
             speed_limit=speed_limit,
             lanes=lanes
@@ -292,12 +300,23 @@ class RoadNetwork:
     def add_two_way_road(self,
                  from_id: int,
                  to_id: int,
-                 length: float,
                  speed_limit: float,
-                 lanes: int = 1) -> Road:
+                 lanes: int = 1) -> Tuple[Road, Road]:
+        """
+        Dodaje drogę dwukierunkową między dwoma skrzyżowaniami.
+        Długość drogi jest automatycznie obliczana na podstawie współrzędnych skrzyżowań.
         
-        road_1_to_2 = self.add_road(from_id, to_id, length, speed_limit, lanes)
-        road_2_to_1 = self.add_road(to_id, from_id, length, speed_limit, lanes)
+        Args:
+            from_id: ID pierwszego skrzyżowania
+            to_id: ID drugiego skrzyżowania
+            speed_limit: Ograniczenie prędkości w km/h
+            lanes: Liczba pasów ruchu
+        
+        Returns:
+            Tupla z dwiema utworzonymi drogami (tam i z powrotem)
+        """
+        road_1_to_2 = self.add_road(from_id, to_id, speed_limit, lanes)
+        road_2_to_1 = self.add_road(to_id, from_id, speed_limit, lanes)
         return (road_1_to_2, road_2_to_1)
     
     def get_intersection(self, intersection_id: int) -> Optional[Intersection]:

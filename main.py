@@ -29,10 +29,16 @@ def main():
         spawn_intersection=network.get_intersection(1)
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(2)
+        spawn_intersection=network.get_intersection(4)
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(3)
+        spawn_intersection=network.get_intersection(5)
+    )
+    fleet.add_spawner(
+        spawn_intersection=network.get_intersection(8)
+    )
+    fleet.add_spawner(
+        spawn_intersection=network.get_intersection(10)
     )
 
     visualizer.run()
