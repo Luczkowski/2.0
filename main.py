@@ -29,10 +29,10 @@ def main():
         spawn_intersection=network.get_intersection(1)
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(4)
+        spawn_intersection=network.get_intersection(5)
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(5)
+        spawn_intersection=network.get_intersection(6)
     )
     fleet.add_spawner(
         spawn_intersection=network.get_intersection(8)

@@ -14,7 +14,7 @@ class VehicleSpawner:
     def __init__(self,
                  spawn_intersection: Intersection,
                  network: RoadNetwork,
-                 spawn_rate: float = 0.5,
+                 spawn_rate: float = 0.25,
                  speed_min: float = 30.0,
                  speed_max: float = 80.0):
         """
