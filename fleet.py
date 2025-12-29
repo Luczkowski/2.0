@@ -35,10 +35,15 @@ class VehicleSpawner:
         
         self.time_since_last_spawn = 0.0
         self.next_spawn_interval = self._next_interval()
+        # Lokalny licznik ID nie jest używany — ID nadawane globalnie w flocie
         self.vehicle_id_counter = 0
 
     def _next_interval(self) -> float:
-        """Generuj interwał używając rozkładu Poissona"""
+        """Generuj interwał czasu między zdarzeniami (rozkład wykładniczy).
+
+        Interwały w procesie Poissona są niezależne i mają rozkład
+        wykładniczy z parametrem λ (spawn_rate), gdzie E[T] = 1/λ.
+        """
         if self.spawn_rate <= 0:
             return float("inf")
 
@@ -73,17 +78,20 @@ class VehicleSpawner:
         self.time_since_last_spawn += delta_time
         
         if self.time_since_last_spawn >= self.next_spawn_interval:
-            self.time_since_last_spawn = 0.0
+            # Zachowaj nadmiar czasu (overshoot), aby nie zafałszować tempa
+            # kolejnych spawnow. Resetowanie do 0.0 powoduje systematyczne
+            # zaniżanie odstępów i zaburza średni rate.
+            self.time_since_last_spawn -= self.next_spawn_interval
             self.next_spawn_interval = self._next_interval()
             
             # Utwórz nowy pojazd
             speed = random.uniform(self.speed_min, self.speed_max)
+            # ID zostanie nadane globalnie przez flotę, użyj placeholdera
             vehicle = Vehicle(
-                id=self.vehicle_id_counter,
+                id=-1,
                 current_intersection=self.spawn_intersection,
                 speed=speed
             )
-            self.vehicle_id_counter += 1
             
             return vehicle
         
@@ -104,25 +112,31 @@ class VehicleFleet:
         self.vehicles: List[Vehicle] = []
         self.controllers: List[VehicleController] = []
         self.spawners: List[VehicleSpawner] = []
+        self._vehicle_id_counter: int = 0
     
-    def add_spawner(self, 
-                    spawn_intersection: Intersection
-                    ) -> VehicleSpawner:
+    def add_spawner(self,
+                    spawn_intersection: Intersection,
+                    spawn_rate: float = 0.25,
+                    speed_min: float = 30.0,
+                    speed_max: float = 80.0) -> VehicleSpawner:
         """
         Dodaje generator pojazdów.
         
         Args:
             spawn_intersection: Skrzyżowanie spawnu
-            spawn_rate: Średnia liczba pojawiających się pojazdów
-            speed_min: Minimalna prędkość
-            speed_max: Maksymalna prędkość
+            spawn_rate: Średnia liczba pojazdów na sekundę (λ)
+            speed_min: Minimalna prędkość (km/h)
+            speed_max: Maksymalna prędkość (km/h)
         
         Returns:
             Utworzony spawner
         """
         spawner = VehicleSpawner(
             spawn_intersection=spawn_intersection,
-            network=self.network
+            network=self.network,
+            spawn_rate=spawn_rate,
+            speed_min=speed_min,
+            speed_max=speed_max
         )
         self.spawners.append(spawner)
         return spawner
@@ -172,6 +186,10 @@ class VehicleFleet:
         Returns:
             Kontroler pojazdu
         """
+        # Nadaj globalnie unikalne ID
+        vehicle.id = self._vehicle_id_counter
+        self._vehicle_id_counter += 1
+
         self.vehicles.append(vehicle)
         controller = VehicleController(vehicle, self.network)
         self.controllers.append(controller)

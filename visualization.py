@@ -327,8 +327,8 @@ class RoadNetworkVisualizer:
         x, y = self._world_to_screen(vx + offset_x, vy + offset_y)
         
         # Rysuj pojazd jako prostokąt
-        vehicle_width = 16
-        vehicle_height = 10
+        vehicle_width = 8
+        vehicle_height = 5
         
         # Oblicz kąt, w którym jedzie pojazd
         angle = 0

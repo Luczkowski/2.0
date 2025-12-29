@@ -23,22 +23,36 @@ def main():
     
     # Dodaj spawner w skrzyżowaniu 0
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(0)
+        spawn_intersection=network.get_intersection(0),
+        spawn_rate=0.25
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(1)
+        spawn_intersection=network.get_intersection(1),
+        spawn_rate=0.10
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(5)
+        spawn_intersection=network.get_intersection(6),
+        spawn_rate=0.2
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(6)
+        spawn_intersection=network.get_intersection(8),
+        spawn_rate=0.2
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(8)
+        spawn_intersection=network.get_intersection(10),
+        spawn_rate=0.10
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(10)
+        spawn_intersection=network.get_intersection(11),
+        spawn_rate=0.2
+    )
+    fleet.add_spawner(
+        spawn_intersection=network.get_intersection(12),
+        spawn_rate=0.25
+    )
+    fleet.add_spawner(
+        spawn_intersection=network.get_intersection(13),
+        spawn_rate=0.2
     )
 
     visualizer.run()
