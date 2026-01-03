@@ -9,6 +9,11 @@ from enum import Enum
 import math
 
 from graph import RoadNetwork, Intersection, Road
+from typing import Optional as _OptionalTrafficMonitor  # avoid type conflict
+try:
+    from traffic_monitor import TrafficMonitor
+except Exception:
+    TrafficMonitor = None  # type: ignore
 
 
 class VehicleState(Enum):
@@ -116,7 +121,7 @@ class PathFinder:
 class VehicleController:
     """Kontroler do zarządzania pojazdem i jego ruchem."""
     
-    def __init__(self, vehicle: Vehicle, network: RoadNetwork):
+    def __init__(self, vehicle: Vehicle, network: RoadNetwork, monitor: _OptionalTrafficMonitor = None):
         """
         Inicjalizuje kontroler pojazdu.
         
@@ -127,6 +132,7 @@ class VehicleController:
         self.vehicle = vehicle
         self.network = network
         self.other_vehicles: List[Vehicle] = []  # Lista innych pojazdów do sprawdzania kolizji
+        self.monitor: _OptionalTrafficMonitor = monitor
     
     def set_destination(self, destination: Intersection) -> bool:
         """
@@ -258,6 +264,10 @@ class VehicleController:
     
     def _move_to_next_intersection(self):
         """Przenosi pojazd na następne skrzyżowanie w ścieżce."""
+        # Zapamiętaj poprzedni wierzchołek (skąd wjeżdżamy)
+        prev_index = self.vehicle.current_path_index
+        prev_intersection = self.vehicle.path[prev_index]
+
         # Przejdź do następnego wierzchołka
         self.vehicle.current_path_index += 1
         self.vehicle.current_intersection = self.vehicle.path[self.vehicle.current_path_index]
@@ -266,6 +276,18 @@ class VehicleController:
         excess_progress = self.vehicle.progress_on_road - 1.0
         self.vehicle.progress_on_road = excess_progress
         
+        # Zarejestruj przejazd przez bieżące skrzyżowanie w monitorze
+        if self.monitor:
+            # Następny wierzchołek (dokąd wyjedziemy), jeśli istnieje
+            next_id_opt: Optional[int] = None
+            if self.vehicle.current_path_index < len(self.vehicle.path) - 1:
+                next_id_opt = self.vehicle.path[self.vehicle.current_path_index + 1].id
+            self.monitor.record_pass(
+                intersection_id=self.vehicle.current_intersection.id,
+                from_id=prev_intersection.id,
+                to_id=next_id_opt
+            )
+
         # Sprawdź czy dotarł do celu
         if self.vehicle.current_path_index >= len(self.vehicle.path) - 1:
             # Dotarł do celu

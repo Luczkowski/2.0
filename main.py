@@ -5,6 +5,7 @@ Główny plik testowy sieciulatora ruchu drogowego.
 from examples import create_example_network
 from visualization import RoadNetworkVisualizer
 from fleet import VehicleFleet
+from traffic_monitor import TrafficMonitor
 
 
 def main():
@@ -20,6 +21,10 @@ def main():
     # Utwórz flotę
     fleet = VehicleFleet(network)
     visualizer.set_fleet(fleet)
+
+    # Utwórz monitor przepustowości i podłącz do floty
+    monitor = TrafficMonitor(window_seconds=60.0)
+    fleet.set_monitor(monitor)
     
     # Dodaj spawner w skrzyżowaniu 0
     fleet.add_spawner(
@@ -45,6 +50,10 @@ def main():
     fleet.add_spawner(
         spawn_intersection=network.get_intersection(11),
         spawn_rate=0.2
+    )
+    fleet.add_spawner(
+        spawn_intersection=network.get_intersection(13),
+        spawn_rate=0.1
     )
     fleet.add_spawner(
         spawn_intersection=network.get_intersection(14),

@@ -6,6 +6,11 @@ import random
 from typing import List, Callable, Optional
 from vehicle import Vehicle, VehicleController, VehicleState
 from graph import RoadNetwork, Intersection
+from typing import Optional
+try:
+    from traffic_monitor import TrafficMonitor
+except Exception:
+    TrafficMonitor = None
 
 
 class VehicleSpawner:
@@ -113,6 +118,11 @@ class VehicleFleet:
         self.controllers: List[VehicleController] = []
         self.spawners: List[VehicleSpawner] = []
         self._vehicle_id_counter: int = 0
+        self.monitor: Optional[TrafficMonitor] = None
+
+    def set_monitor(self, monitor: TrafficMonitor):
+        """Ustawia monitor przepustowości dla floty."""
+        self.monitor = monitor
     
     def add_spawner(self,
                     spawn_intersection: Intersection,
@@ -151,6 +161,9 @@ class VehicleFleet:
         Args:
             delta_time: Czas upłynięty (sekundy)
         """
+        # Zaktualizuj czas monitora zanim nastąpią zdarzenia przejazdów
+        if self.monitor:
+            self.monitor.update(delta_time)
         # Spawn nowych pojazdów
         for spawner in self.spawners:
             new_vehicle = spawner.update(delta_time)
@@ -191,7 +204,7 @@ class VehicleFleet:
         self._vehicle_id_counter += 1
 
         self.vehicles.append(vehicle)
-        controller = VehicleController(vehicle, self.network)
+        controller = VehicleController(vehicle, self.network, self.monitor)
         self.controllers.append(controller)
         
         # Wylosuj cel

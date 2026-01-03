@@ -238,6 +238,43 @@ class RoadNetworkVisualizer:
             self._draw_traffic_light(x, y, intersection.traffic_light)
         elif intersection.traffic_light_controller:
             self._draw_traffic_light_controller(x, y, intersection.traffic_light_controller, intersection)
+        
+        # Monitor przepustowości
+
+    def _draw_throughput_overlay(self, x: int, y: int, intersection_id: int):
+        """Rysuje panel z przepustowością (pojazdy/min) dla danego skrzyżowania."""
+        monitor = getattr(self.fleet, 'monitor', None) if self.fleet else None
+        if not monitor:
+            return
+        rates = monitor.get_rates_for_intersection(intersection_id)
+        total = monitor.get_total_rate_for_intersection(intersection_id)
+
+        # Przygotuj linie tekstu
+        lines = [f"Σ: {total}/min"]
+        # Posortuj kierunki malejąco po liczbie
+        sorted_items = sorted(rates.items(), key=lambda kv: kv[1], reverse=True)
+        # Pokaż max 6 kierunków
+        for (from_id, to_id), count in sorted_items[:6]:
+            to_txt = str(to_id) if to_id is not None else "dest"
+            lines.append(f"z {from_id} do {to_txt}: {count}/min")
+
+        # Wymiary panelu
+        padding = 6
+        line_h = 16
+        width = 140
+        height = padding * 2 + line_h * len(lines)
+        # Pozycja panelu (po prawej i lekko powyżej skrzyżowania)
+        box_x = x + self.INTERSECTION_RADIUS + 12
+        box_y = y - height // 2
+
+        # Tło i obramowanie
+        pygame.draw.rect(self.screen, (250, 250, 250), (box_x, box_y, width, height), border_radius=6)
+        pygame.draw.rect(self.screen, self.COLOR_TEXT, (box_x, box_y, width, height), width=1, border_radius=6)
+
+        # Renderowanie linii
+        for i, line in enumerate(lines):
+            txt = self.font_small.render(line, True, self.COLOR_TEXT)
+            self.screen.blit(txt, (box_x + padding, box_y + padding + i * line_h))
     
     def _draw_traffic_light(self, x: int, y: int, traffic_light):
         """Rysuje sygnalizację świetlną przy skrzyżowaniu."""
@@ -286,6 +323,16 @@ class RoadNetworkVisualizer:
         text = self.font_small.render(allowed_text, True, (0, 0, 0))
         text_rect = text.get_rect(center=(label_x, label_y))
         self.screen.blit(text, text_rect)
+    
+    def _render_throughput_overlay(self):
+        """Rysuje overlay przepustowości po wszystkich elementach, aby był na wierzchu."""
+        if self.hovered_intersection is None or not self.network:
+            return
+        intersection = self.network.get_intersection(self.hovered_intersection)
+        if not intersection:
+            return
+        x, y = self._world_to_screen(intersection.x, intersection.y)
+        self._draw_throughput_overlay(x, y, intersection.id)
     
     def _draw_vehicle(self, vehicle: Vehicle):
         """Rysuje samochód na ekranie."""
@@ -564,6 +611,9 @@ class RoadNetworkVisualizer:
             
             # Rysuj panel kontroli świateł
             self._draw_light_control_panel()
+            
+            # Rysuj overlay przepustowości na końcu (nad wszystkimi elementami)
+            self._render_throughput_overlay()
             
             # Zaktualizuj ekran
             pygame.display.flip()
