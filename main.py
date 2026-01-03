@@ -47,12 +47,12 @@ def main():
         spawn_rate=0.2
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(12),
+        spawn_intersection=network.get_intersection(14),
         spawn_rate=0.25
     )
     fleet.add_spawner(
-        spawn_intersection=network.get_intersection(13),
-        spawn_rate=0.2
+        spawn_intersection=network.get_intersection(15),
+        spawn_rate=0.1
     )
 
     visualizer.run()

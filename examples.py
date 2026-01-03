@@ -10,7 +10,7 @@ def create_example_network() -> RoadNetwork:
     network = RoadNetwork()
     
     # Skrzyżowania
-    A = network.add_intersection("Grunwaldzka N", 520, -100)
+    A = network.add_intersection("Grunwaldzka N", 420, -200)
     B = network.add_intersection("Wojska Polskiego W", 220, 0)
     C = network.add_intersection("Grunwaldzka x Wojska Polskiego", 660, 65)
     D = network.add_intersection("Grunwaldzka x Szymanowskiego", 740, 165)
@@ -24,6 +24,8 @@ def create_example_network() -> RoadNetwork:
     L = network.add_intersection("Jaśkowa Dolina S", 1000, 1200)
     M = network.add_intersection("Grunwaldzka x Do Studzienki", 1770, 1050)
     N = network.add_intersection("Do Studzienki S", 1370, 1450)
+    O = network.add_intersection("Grunwaldzka S", 2070, 1250)
+    P = network.add_intersection("Lewoniewskich", 860, -65)
     
     # Punkty pośrednie
     C.is_destination = False
@@ -32,6 +34,7 @@ def create_example_network() -> RoadNetwork:
     F.is_destination = False
     H.is_destination = False
     J.is_destination = False
+    M.is_destination = False
     
     # Sygnalizację świetlna
     # Faza 1: Pojazdy z B mogą jechać przez 5 sekund
@@ -56,6 +59,35 @@ def create_example_network() -> RoadNetwork:
     #     TrafficLightPhase(allowed_directions={G.id, B.id}, duration=5.0),
     #     TrafficLightPhase(allowed_directions={J.id}, duration=5.0)
     # ])
+    
+    C.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={A.id, D.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={P.id, C.id}, duration=5.0)
+    ])
+    D.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={C.id, E.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={J.id}, duration=5.0)
+    ])
+    E.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={D.id, F.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={G.id, H.id}, duration=5.0)
+    ])
+    F.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={E.id, M.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={H.id, L.id}, duration=5.0)
+    ])
+    M.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={F.id, O.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={N.id}, duration=5.0)
+    ])
+    H.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={J.id, F.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={E.id, I.id}, duration=5.0)
+    ])
+    J.traffic_light_controller = TrafficLightController([
+        TrafficLightPhase(allowed_directions={K.id, H.id}, duration=5.0),
+        TrafficLightPhase(allowed_directions={D.id}, duration=5.0)
+    ])
     
     # Drogi
     network.add_two_way_road(
@@ -145,6 +177,18 @@ def create_example_network() -> RoadNetwork:
     network.add_two_way_road(
         from_id=M.id,
         to_id=N.id,
+        speed_limit=50,
+        lanes=2
+    )
+    network.add_two_way_road(
+        from_id=M.id,
+        to_id=O.id,
+        speed_limit=50,
+        lanes=2
+    )
+    network.add_two_way_road(
+        from_id=P.id,
+        to_id=C.id,
         speed_limit=50,
         lanes=2
     )
