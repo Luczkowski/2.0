@@ -2,11 +2,12 @@
 Moduł do reprezentacji samochodów i ich nawigacji w sieci drogowej.
 """
 
-from typing import List, Optional, Deque
+from typing import List, Optional, Deque, Dict
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 import math
+import heapq
 
 from graph import RoadNetwork, Intersection, Road
 from typing import Optional as _OptionalTrafficMonitor  # avoid type conflict
@@ -80,7 +81,8 @@ class PathFinder:
                            start: Intersection,
                            end: Intersection) -> List[Intersection]:
         """
-        Znajduje najkrótszą ścieżkę między dwoma skrzyżowaniami (BFS).
+        Znajduje najkrótszą ścieżkę między dwoma skrzyżowaniami (algorytm Dijkstry).
+        Uwzględnia długość dróg jako wagi.
         
         Args:
             network: Sieć drogowa
@@ -93,11 +95,36 @@ class PathFinder:
         if start == end:
             return [start]
         
-        queue: Deque = deque([(start, [start])])
-        visited = {start.id}
+        # Słownik odległości od startu
+        distances: Dict[int, float] = {start.id: 0.0}
         
-        while queue:
-            current, path = queue.popleft()
+        # Słownik poprzedników do rekonstrukcji ścieżki
+        predecessors: Dict[int, Intersection] = {}
+        
+        # Kolejka priorytetowa: (odległość, intersection)
+        heap = [(0.0, start)]
+        
+        # Zbiór odwiedzonych wierzchołków
+        visited = set()
+        
+        while heap:
+            current_distance, current = heapq.heappop(heap)
+            
+            # Jeśli już odwiedziliśmy, pomiń
+            if current.id in visited:
+                continue
+            
+            visited.add(current.id)
+            
+            # Jeśli dotarliśmy do celu, rekonstruuj ścieżkę
+            if current == end:
+                path = []
+                node = end
+                while node.id in predecessors:
+                    path.append(node)
+                    node = predecessors[node.id]
+                path.append(start)
+                return list(reversed(path))
             
             # Sprawdź sąsiadów
             for road in network.get_outgoing_roads(current.id):
@@ -106,13 +133,14 @@ class PathFinder:
                 if neighbor.id in visited:
                     continue
                 
-                new_path = path + [neighbor]
+                # Oblicz nową odległość
+                new_distance = current_distance + road.length
                 
-                if neighbor == end:
-                    return new_path
-                
-                visited.add(neighbor.id)
-                queue.append((neighbor, new_path))
+                # Jeśli znaleźliśmy krótszą ścieżkę, aktualizuj
+                if neighbor.id not in distances or new_distance < distances[neighbor.id]:
+                    distances[neighbor.id] = new_distance
+                    predecessors[neighbor.id] = current
+                    heapq.heappush(heap, (new_distance, neighbor))
         
         # Brak ścieżki
         return []
