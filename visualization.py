@@ -486,9 +486,9 @@ class RoadNetworkVisualizer:
         controller = intersection.traffic_light_controller
         
         # Panel na prawej stronie
-        panel_x = self.width - 300
+        panel_x = self.width - 400
         panel_y = 10
-        panel_width = 290
+        panel_width = 390
         panel_height = 200
         
         # Tło panelu
@@ -582,11 +582,7 @@ class RoadNetworkVisualizer:
             
             # Aktualizuj sygnalizacje świetlne
             if self.network:
-                for intersection in self.network.get_all_intersections():
-                    if intersection.traffic_light:
-                        intersection.traffic_light.update(delta_time)
-                    if intersection.traffic_light_controller:
-                        intersection.traffic_light_controller.update(delta_time)
+                self.network.update_traffic_lights(delta_time)
             
             # Rysuj tło
             self.screen.fill(self.COLOR_BACKGROUND)

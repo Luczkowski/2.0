@@ -62,23 +62,23 @@ def create_example_network() -> RoadNetwork:
     
     C.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={A.id, D.id}, duration=5.0),
-        TrafficLightPhase(allowed_directions={P.id, C.id}, duration=5.0)
+        TrafficLightPhase(allowed_directions={P.id, C.id}, duration=10.0)
     ])
     D.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={C.id, E.id}, duration=5.0),
-        TrafficLightPhase(allowed_directions={J.id}, duration=5.0)
+        TrafficLightPhase(allowed_directions={J.id}, duration=10.0)
     ])
     E.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={D.id, F.id}, duration=5.0),
-        TrafficLightPhase(allowed_directions={G.id, H.id}, duration=5.0)
+        TrafficLightPhase(allowed_directions={G.id, H.id}, duration=10.0)
     ])
     F.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={E.id, M.id}, duration=5.0),
-        TrafficLightPhase(allowed_directions={H.id, L.id}, duration=5.0)
+        TrafficLightPhase(allowed_directions={H.id, L.id}, duration=10.0)
     ])
     M.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={F.id, O.id}, duration=5.0),
-        TrafficLightPhase(allowed_directions={N.id}, duration=5.0)
+        TrafficLightPhase(allowed_directions={N.id}, duration=10.0)
     ])
     H.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={J.id, F.id}, duration=5.0),

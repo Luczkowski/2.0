@@ -364,6 +364,14 @@ class RoadNetwork:
     def num_roads(self) -> int:
         """Zwraca liczbę dróg w sieci."""
         return len(self.roads)
+
+    def update_traffic_lights(self, delta_time: float) -> None:
+        """Aktualizuje wszystkie sygnalizacje świetlne w sieci."""
+        for intersection in self.get_all_intersections():
+            if intersection.traffic_light:
+                intersection.traffic_light.update(delta_time)
+            if intersection.traffic_light_controller:
+                intersection.traffic_light_controller.update(delta_time)
     
     def __repr__(self) -> str:
         return (f"RoadNetwork(intersections={self.num_intersections()}, "
