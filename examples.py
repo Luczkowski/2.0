@@ -194,3 +194,29 @@ def create_example_network() -> RoadNetwork:
     )
     return network
 
+def setup_example_spawners(fleet, network):
+    """
+    Konfiguruje spawnery pojazdów dla przykładowej sieci.
+    
+    Args:
+        fleet: Obiekt VehicleFleet
+        network: Obiekt RoadNetwork
+    """
+    spawner_configs = [
+        (0, 0.25),
+        (1, 0.10),
+        (6, 0.2),
+        (8, 0.2),
+        (10, 0.10),
+        (11, 0.2),
+        (13, 0.1),
+        (14, 0.25),
+        (15, 0.1),
+    ]
+    
+    for intersection_id, spawn_rate in spawner_configs:
+        fleet.add_spawner(
+            spawn_intersection=network.get_intersection(intersection_id),
+            spawn_rate=spawn_rate
+        )
+
