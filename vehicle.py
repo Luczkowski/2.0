@@ -102,13 +102,14 @@ class PathFinder:
         predecessors: Dict[int, Intersection] = {}
         
         # Kolejka priorytetowa: (odległość, intersection)
-        heap = [(0.0, start)]
+        heap = [(0.0, 0, start)]
         
         # Zbiór odwiedzonych wierzchołków
         visited = set()
+        counter = 1
         
         while heap:
-            current_distance, current = heapq.heappop(heap)
+            current_distance, counter, current = heapq.heappop(heap)
             
             # Jeśli już odwiedziliśmy, pomiń
             if current.id in visited:
@@ -140,7 +141,8 @@ class PathFinder:
                 if neighbor.id not in distances or new_distance < distances[neighbor.id]:
                     distances[neighbor.id] = new_distance
                     predecessors[neighbor.id] = current
-                    heapq.heappush(heap, (new_distance, neighbor))
+                    heapq.heappush(heap, (new_distance, counter, neighbor))
+                    counter += 1
         
         # Brak ścieżki
         return []
