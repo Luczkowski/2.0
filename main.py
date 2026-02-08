@@ -1,9 +1,11 @@
 """
 Główny plik testowy sieciulatora ruchu drogowego.
 """
-# Zmiana pliku z przykłądami
+# Zmiana pliku z przykładami
+
 # from examples import create_example_network, setup_example_spawners
-from examples2 import create_example_network, setup_example_spawners
+# from examples2 import create_example_network, setup_example_spawners
+from examples3 import create_example_network, setup_example_spawners
 
 from visualization import RoadNetworkVisualizer
 from fleet import VehicleFleet
