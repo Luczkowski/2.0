@@ -36,30 +36,6 @@ def create_example_network() -> RoadNetwork:
     J.is_destination = False
     M.is_destination = False
     
-    # Sygnalizację świetlna
-    # Faza 1: Pojazdy z B mogą jechać przez 5 sekund
-    # Faza 2: Pojazdy z A (przez diagonal) mogą jechać przez 5 sekund
-    # C.traffic_light_controller = TrafficLightController([
-    #     TrafficLightPhase(allowed_directions={A.id, E.id}, duration=5.0),
-    #     TrafficLightPhase(allowed_directions={J.id}, duration=5.0)
-    # ])
-    # J.traffic_light_controller = TrafficLightController([
-    #     TrafficLightPhase(allowed_directions={C.id, D.id}, duration=5.0),
-    #     TrafficLightPhase(allowed_directions={K.id}, duration=5.0)
-    # ])
-    # H.traffic_light_controller = TrafficLightController([
-    #     TrafficLightPhase(allowed_directions={G.id, F.id}, duration=5.0),
-    #     TrafficLightPhase(allowed_directions={K.id, I.id}, duration=5.0)
-    # ])
-    # G.traffic_light_controller = TrafficLightController([
-    #     TrafficLightPhase(allowed_directions={D.id, H.id}, duration=5.0),
-    #     TrafficLightPhase(allowed_directions={L.id}, duration=5.0)
-    # ])
-    # D.traffic_light_controller = TrafficLightController([
-    #     TrafficLightPhase(allowed_directions={G.id, B.id}, duration=5.0),
-    #     TrafficLightPhase(allowed_directions={J.id}, duration=5.0)
-    # ])
-    
     C.traffic_light_controller = TrafficLightController([
         TrafficLightPhase(allowed_directions={A.id, D.id}, duration=5.0),
         TrafficLightPhase(allowed_directions={P.id, C.id}, duration=10.0)
