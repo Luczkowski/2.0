@@ -41,6 +41,8 @@ class Vehicle:
     # Pozycja na drodze
     progress_on_road: float = 0.0  # Procent drogi (0.0 - 1.0)
     current_road: Optional[Road] = None  # Aktualna droga
+    red_light_wait_time: float = 0.0  # Łączny czas postoju na czerwonym (sekundy)
+    is_waiting_at_red_light: bool = False  # Czy aktualnie stoi w kolejce na czerwonym
     
     def __repr__(self) -> str:
         return (f"Vehicle(id={self.id}, "
@@ -215,14 +217,17 @@ class VehicleController:
             delta_time: Czas upłynięty od ostatniej aktualizacji (w sekundach)
         """
         if self.vehicle.state != VehicleState.DRIVING:
+            self.vehicle.is_waiting_at_red_light = False
             return
         
         if not self.vehicle.current_road:
+            self.vehicle.is_waiting_at_red_light = False
             return
         
         # Sprawdź czy na następnym skrzyżowaniu jest czerwone światło
         next_intersection = self.vehicle.path[self.vehicle.current_path_index + 1]
         current_intersection = self.vehicle.current_intersection
+        prev_progress = self.vehicle.progress_on_road
         
         has_red_light = False
         if next_intersection.traffic_light_controller:
@@ -256,6 +261,14 @@ class VehicleController:
             proposed_progress = min(proposed_progress, max_red_light_progress)
         
         self.vehicle.progress_on_road = proposed_progress
+
+        # Kolejka na światłach: pojazd stoi (lub praktycznie stoi) przy czerwonym.
+        progress_delta = self.vehicle.progress_on_road - prev_progress
+        self.vehicle.is_waiting_at_red_light = has_red_light and progress_delta <= 1e-9
+
+        # Zliczaj czas stania na czerwonym: pojazd jest przy linii zatrzymania i nie jedzie dalej
+        if has_red_light and prev_progress >= 0.95 and self.vehicle.progress_on_road <= prev_progress + 1e-9:
+            self.vehicle.red_light_wait_time += max(0.0, delta_time)
         
         # Sprawdzenie czy pojazd dotarł do następnego skrzyżowania
         # Może być konieczne przesunięcie się o kilka wierzchołków w jednym frame
@@ -301,6 +314,7 @@ class VehicleController:
         # Przejdź do następnego wierzchołka
         self.vehicle.current_path_index += 1
         self.vehicle.current_intersection = self.vehicle.path[self.vehicle.current_path_index]
+        self.vehicle.is_waiting_at_red_light = False
         
         # Przyszły postęp (jeśli pojazd jechał szybciej niż długość drogi)
         excess_progress = self.vehicle.progress_on_road - 1.0

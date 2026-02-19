@@ -422,11 +422,37 @@ class RoadNetworkVisualizer:
             return
         
         num_vehicles = self.fleet.num_vehicles() if self.fleet else 0
+        avg_speed = self.fleet.get_average_speed() if self.fleet else 0.0
+        p85_speed = self.fleet.get_speed_percentile(0.85) if self.fleet else 0.0
+        avg_travel_time = self.fleet.get_average_travel_time() if self.fleet else 0.0
+        avg_red_light_wait = self.fleet.get_average_red_light_wait_time() if self.fleet else 0.0
+        avg_queue_length = self.fleet.get_average_queue_length_at_lights() if self.fleet else 0.0
+        completed_trips = self.fleet.get_completed_trips_count() if self.fleet else 0
+        speed_line = (
+            f"Śr. prędkość: {avg_speed:.1f} km/h | P85: {p85_speed:.1f} km/h"
+            if num_vehicles > 0
+            else "Śr. prędkość: - | P85: -"
+        )
+        avg_travel_line = (
+            f"Śr. czas przejazdu: {avg_travel_time:.1f}s (n={completed_trips})"
+            if completed_trips > 0
+            else "Śr. czas przejazdu: -"
+        )
+        avg_wait_line = (
+            f"Śr. czas stania na światłach: {avg_red_light_wait:.1f}s (n={completed_trips})"
+            if completed_trips > 0
+            else "Śr. czas stania na światłach: -"
+        )
+        avg_queue_line = f"Śr. długość kolejki na światłach: {avg_queue_length:.2f}"
         
         info_lines = [
             f"Skrzyżowania: {self.network.num_intersections()}",
             f"Drogi: {self.network.num_roads()}",
             f"Pojazdy: {num_vehicles}",
+            speed_line,
+            avg_travel_line,
+            avg_wait_line,
+            avg_queue_line,
             "",
             "Sterowanie:",
             "ESC - zamknij",
