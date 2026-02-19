@@ -3,6 +3,7 @@ Moduł do zarządzania flotą pojazdów w symulacji.
 """
 
 import random
+import math
 from typing import List, Callable, Optional
 from vehicle import Vehicle, VehicleController, VehicleState
 from graph import RoadNetwork, Intersection
@@ -119,6 +120,13 @@ class VehicleFleet:
         self.spawners: List[VehicleSpawner] = []
         self._vehicle_id_counter: int = 0
         self.monitor: Optional[TrafficMonitor] = None
+        self._sim_time: float = 0.0
+        self._spawn_times: dict[int, float] = {}
+        self._completed_trips_count: int = 0
+        self._total_travel_time: float = 0.0
+        self._total_red_light_wait_time: float = 0.0
+        self._queue_length_time_integral: float = 0.0
+        self._queue_length_measurement_time: float = 0.0
 
     def set_monitor(self, monitor: TrafficMonitor):
         """Ustawia monitor przepustowości dla floty."""
@@ -161,6 +169,9 @@ class VehicleFleet:
         Args:
             delta_time: Czas upłynięty (sekundy)
         """
+        if delta_time > 0:
+            self._sim_time += delta_time
+
         # Zaktualizuj czas monitora zanim nastąpią zdarzenia przejazdów
         if self.monitor:
             self.monitor.update(delta_time)
@@ -188,6 +199,18 @@ class VehicleFleet:
         for i in reversed(vehicles_to_remove):
             removed_vehicle = self.vehicles.pop(i)
             self.controllers.pop(i)
+            start_time = self._spawn_times.pop(removed_vehicle.id, None)
+            if start_time is not None:
+                travel_time = max(0.0, self._sim_time - start_time)
+                self._completed_trips_count += 1
+                self._total_travel_time += travel_time
+                self._total_red_light_wait_time += max(0.0, removed_vehicle.red_light_wait_time)
+
+        # Aktualizuj średnią czasową długość kolejki na czerwonym świetle.
+        if delta_time > 0:
+            current_queue_length = sum(1 for vehicle in self.vehicles if vehicle.is_waiting_at_red_light)
+            self._queue_length_time_integral += current_queue_length * delta_time
+            self._queue_length_measurement_time += delta_time
     
     def add_vehicle(self, vehicle: Vehicle) -> VehicleController:
         """
@@ -202,6 +225,7 @@ class VehicleFleet:
         # Nadaj globalnie unikalne ID
         vehicle.id = self._vehicle_id_counter
         self._vehicle_id_counter += 1
+        self._spawn_times[vehicle.id] = self._sim_time
 
         self.vehicles.append(vehicle)
         controller = VehicleController(vehicle, self.network, self.monitor)
@@ -213,6 +237,44 @@ class VehicleFleet:
             controller.set_destination(destination)
         
         return controller
+
+    def get_average_travel_time(self) -> float:
+        """Zwraca średni czas przejazdu (sekundy) dla zakończonych przejazdów."""
+        if self._completed_trips_count == 0:
+            return 0.0
+        return self._total_travel_time / self._completed_trips_count
+
+    def get_completed_trips_count(self) -> int:
+        """Zwraca liczbę pojazdów, które ukończyły przejazd."""
+        return self._completed_trips_count
+
+    def get_average_red_light_wait_time(self) -> float:
+        """Zwraca średni czas stania na światłach (sekundy) dla zakończonych przejazdów."""
+        if self._completed_trips_count == 0:
+            return 0.0
+        return self._total_red_light_wait_time / self._completed_trips_count
+
+    def get_average_queue_length_at_lights(self) -> float:
+        """Zwraca średnią długość kolejki na światłach (liczba pojazdów)."""
+        if self._queue_length_measurement_time <= 0:
+            return 0.0
+        return self._queue_length_time_integral / self._queue_length_measurement_time
+
+    def get_average_speed(self) -> float:
+        """Zwraca średnią prędkość aktywnych pojazdów (km/h)."""
+        if not self.vehicles:
+            return 0.0
+        return sum(vehicle.speed for vehicle in self.vehicles) / len(self.vehicles)
+
+    def get_speed_percentile(self, percentile: float) -> float:
+        """Zwraca percentyl prędkości aktywnych pojazdów (km/h)."""
+        if not self.vehicles:
+            return 0.0
+
+        p = min(1.0, max(0.0, percentile))
+        speeds = sorted(vehicle.speed for vehicle in self.vehicles)
+        rank = max(0, math.ceil(p * len(speeds)) - 1)
+        return speeds[rank]
     
     def _get_random_destination(self, exclude_intersection: Intersection) -> Optional[Intersection]:
         """

@@ -114,6 +114,10 @@ def main():
         lines = []
         lines.append(f"czas_symulacji_s=\t{duration_seconds:.3f}")
         lines.append(f"okno_s=\t{monitor.window_seconds:.3f}")
+        lines.append(f"zakonczone_przejazdy=\t{fleet.get_completed_trips_count()}")
+        lines.append(f"sredni_czas_przejazdu_s=\t{fleet.get_average_travel_time():.3f}")
+        lines.append(f"sredni_czas_stania_na_swiatlach_s=\t{fleet.get_average_red_light_wait_time():.3f}")
+        lines.append(f"srednia_dlugosc_kolejki_na_swiatlach=\t{fleet.get_average_queue_length_at_lights():.3f}")
         lines.append("")
         lines.append("intersection_id\tname\tthroughput_per_min")
         for intersection in sorted(network.get_all_intersections(), key=lambda i: i.id):
