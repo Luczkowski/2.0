@@ -64,9 +64,17 @@ class RoadNetworkVisualizer:
         # Kontrola świateł
         self.selected_intersection: int | None = None
         self.show_light_controls = False
+        self.selected_phase_index = 0
+        self.light_phase_row_rects: List[Tuple[int, pygame.Rect]] = []
+        self.light_dec_1_button_rect: pygame.Rect | None = None
+        self.light_inc_1_button_rect: pygame.Rect | None = None
+        self.light_dec_5_button_rect: pygame.Rect | None = None
+        self.light_inc_5_button_rect: pygame.Rect | None = None
 
         # Kontrola spawnera
         self.show_spawn_controls: bool = False
+        self.spawn_decrease_button_rect: pygame.Rect | None = None
+        self.spawn_increase_button_rect: pygame.Rect | None = None
         
 
     def load_network(self, network: RoadNetwork, auto_scale: bool = True):
@@ -452,23 +460,32 @@ class RoadNetworkVisualizer:
             speed_line,
             avg_travel_line,
             avg_wait_line,
-            avg_queue_line,
-            "",
-            "Sterowanie:",
-            "ESC - zamknij",
-            "Kliknij skrzyżowanie - wybierz",
-            "T - pokaż/ukryj kontrolę świateł",
-            "[1-9] - wybierz fazę",
-            "+ / - - zmień czas fazy (±1s)",
-            "SHIFT + / - - zmień o ±5s",
-            "[ / ] - zmień częstotliwość spawnu"
+            avg_queue_line
         ]
-        
-        y_offset = 10
+
+        # Panel w lewym dolnym rogu
+        panel_x = 10
+        panel_width = 460
+        line_height = 20
+        panel_height = 45 + len(info_lines) * line_height
+        panel_y = self.height - panel_height - 10
+
+        pygame.draw.rect(self.screen, (240, 240, 220),
+                         (panel_x, panel_y, panel_width, panel_height),
+                         border_radius=10)
+        pygame.draw.rect(self.screen, (100, 100, 100),
+                         (panel_x, panel_y, panel_width, panel_height),
+                         width=2, border_radius=10)
+
+        title = "Statystyki"
+        text = self.font.render(title, True, (0, 0, 0))
+        self.screen.blit(text, (panel_x + 10, panel_y + 10))
+
+        y_offset = panel_y + 38
         for line in info_lines:
             text = self.font_small.render(line, True, self.COLOR_TEXT)
-            self.screen.blit(text, (10, y_offset))
-            y_offset += 25
+            self.screen.blit(text, (panel_x + 10, y_offset))
+            y_offset += line_height
         
         # Informacje o najechaniu
         if self.hovered_intersection is not None:
@@ -477,31 +494,43 @@ class RoadNetworkVisualizer:
                 outgoing = self.network.get_outgoing_roads(intersection.id)
                 detail_text = f"{intersection.name} ({len(outgoing)} wychodzących dróg)"
                 text = self.font.render(detail_text, True, self.COLOR_INTERSECTION)
-                self.screen.blit(text, (10, self.height - 40))
+                self.screen.blit(text, (10, max(10, panel_y - 30)))
 
-        # Informacje o spawnerach
-        if self.selected_intersection is not None:
-            spawners = self._get_spawners_for_selected_intersection()
-            y_offset += 10
-            self.screen.blit(
-                self.font.render("Spawners:", True, self.COLOR_TEXT),
-                (10, y_offset)
-            )
-            y_offset += 20
+    def _is_light_control_panel_visible(self) -> bool:
+        """Sprawdza, czy panel kontroli świateł będzie widoczny."""
+        if not self.network or not self.show_light_controls or self.selected_intersection is None:
+            return False
 
-            for idx, spawner in enumerate(spawners):
-                text = (
-                    f"#{idx} "
-                    f"rate={spawner.spawn_rate:.2f} pojazdów/s"
-                )
-                self.screen.blit(
-                    self.font_small.render(text, True, self.COLOR_TEXT),
-                    (10, y_offset)
-                )
-                y_offset += 18
-    
+        intersection = self.network.get_intersection(self.selected_intersection)
+        return bool(intersection and intersection.traffic_light_controller)
+
+    def _is_spawn_control_panel_visible(self) -> bool:
+        """Sprawdza, czy panel kontroli spawnerów będzie widoczny."""
+        if not self.network or self.selected_intersection is None:
+            return False
+
+        return len(self._get_spawners_for_selected_intersection()) > 0
+
+    def _draw_selection_hint(self):
+        """Rysuje podpowiedź wyboru skrzyżowania, gdy żaden panel nie jest widoczny."""
+        if self._is_light_control_panel_visible() or self._is_spawn_control_panel_visible():
+            return
+
+        panel_x = self.width - 400
+        panel_y = 10
+
+        text = self.font.render("Kliknij na skrzyżowanie", True, (70, 70, 70))
+        self.screen.blit(text, (panel_x + 10, panel_y + 10))
+
+
     def _draw_light_control_panel(self):
         """Rysuje panel kontroli świateł dla wybranego skrzyżowania."""
+        self.light_phase_row_rects = []
+        self.light_dec_1_button_rect = None
+        self.light_inc_1_button_rect = None
+        self.light_dec_5_button_rect = None
+        self.light_inc_5_button_rect = None
+
         if not self.show_light_controls or self.selected_intersection is None:
             return
         
@@ -510,12 +539,13 @@ class RoadNetworkVisualizer:
             return
         
         controller = intersection.traffic_light_controller
+        mouse_pos = pygame.mouse.get_pos()
         
         # Panel na prawej stronie
         panel_x = self.width - 400
         panel_y = 10
         panel_width = 390
-        panel_height = 200
+        panel_height = 240
         
         # Tło panelu
         pygame.draw.rect(self.screen, (240, 240, 220),
@@ -535,15 +565,29 @@ class RoadNetworkVisualizer:
         for i, phase in enumerate(controller.phases):
             dirs = ", ".join(str(d) for d in sorted(phase.allowed_directions))
             is_current = i == controller.current_phase_index
+            is_selected = i == self.selected_phase_index
+            phase_row_rect = pygame.Rect(panel_x + 5, y - 2, panel_width - 10, 22)
+            self.light_phase_row_rects.append((i, phase_row_rect))
+
+            # Efekt hover dla faz
+            if phase_row_rect.collidepoint(mouse_pos) and not is_current:
+                pygame.draw.rect(self.screen, (220, 235, 255),
+                               phase_row_rect,
+                               border_radius=3)
             
             # Kolor tła dla aktywnej fazy
             if is_current:
                 pygame.draw.rect(self.screen, (200, 255, 200),
-                               (panel_x + 5, y - 2, panel_width - 10, 22),
+                               phase_row_rect,
                                border_radius=3)
+
+            # Obramowanie fazy wybranej do edycji
+            if is_selected:
+                pygame.draw.rect(self.screen, (255, 180, 80),
+                               phase_row_rect,
+                               width=2, border_radius=3)
             
-            marker = "→" if is_current else " "
-            phase_text = f"{marker} [{i+1}] Faza {i}: {phase.duration:.1f}s"
+            phase_text = f"[{i+1}] Faza {i}: {phase.duration:.1f}s"
             text = self.font_small.render(phase_text, True, (0, 0, 0))
             self.screen.blit(text, (panel_x + 10, y))
             
@@ -553,16 +597,160 @@ class RoadNetworkVisualizer:
             self.screen.blit(text, (panel_x + 10, y))
             y += 25
         
-        # Instrukcje
-        y = panel_y + panel_height - 30
-        instr_text = "Wybierz [1-9], +/- zmień czas"
-        text = self.font_small.render(instr_text, True, (100, 100, 100))
+        # Legenda
+        y = panel_y + panel_height - 92
+        legend_active = "Aktywna faza: zielone tlo"
+        text = self.font_small.render(legend_active, True, (80, 80, 80))
         self.screen.blit(text, (panel_x + 10, y))
+
+        y += 16
+        legend_edit = "Edytowana faza: obramowanie"
+        text = self.font_small.render(legend_edit, True, (80, 80, 80))
+        self.screen.blit(text, (panel_x + 10, y))
+
+        # Przyciski zmiany czasu
+        button_w = 56
+        button_h = 26
+        button_y = panel_y + panel_height - 40
+
+        label_text = self.font_small.render("Zmiana czasu:", True, (80, 80, 80))
+        self.screen.blit(label_text, (panel_x + 10, button_y - 16))
+
+        self.light_dec_1_button_rect = pygame.Rect(panel_x + 10, button_y, button_w, button_h)
+        self.light_inc_1_button_rect = pygame.Rect(panel_x + 74, button_y, button_w, button_h)
+        self.light_dec_5_button_rect = pygame.Rect(panel_x + 138, button_y, button_w, button_h)
+        self.light_inc_5_button_rect = pygame.Rect(panel_x + 202, button_y, button_w, button_h)
+
+        buttons = [
+            (self.light_dec_1_button_rect, "-1"),
+            (self.light_inc_1_button_rect, "+1"),
+            (self.light_dec_5_button_rect, "-5"),
+            (self.light_inc_5_button_rect, "+5"),
+        ]
+
+        for rect, label in buttons:
+            bg_color = (200, 220, 255) if rect.collidepoint(mouse_pos) else (220, 220, 220)
+            pygame.draw.rect(self.screen, bg_color, rect, border_radius=6)
+            pygame.draw.rect(self.screen, (120, 120, 120), rect, width=2, border_radius=6)
+            label_text = self.font_small.render(label, True, (0, 0, 0))
+            label_rect = label_text.get_rect(center=rect.center)
+            self.screen.blit(label_text, label_rect)
+
+    def _handle_light_panel_click(self, mouse_pos: Tuple[int, int]) -> bool:
+        """Obsługuje kliknięcia panelu świateł."""
+        if not self._is_light_control_panel_visible():
+            return False
+
+        if self.light_dec_1_button_rect and self.light_dec_1_button_rect.collidepoint(mouse_pos):
+            self._adjust_selected_light_phase(self.selected_phase_index, -1.0)
+            return True
+
+        if self.light_inc_1_button_rect and self.light_inc_1_button_rect.collidepoint(mouse_pos):
+            self._adjust_selected_light_phase(self.selected_phase_index, 1.0)
+            return True
+
+        if self.light_dec_5_button_rect and self.light_dec_5_button_rect.collidepoint(mouse_pos):
+            self._adjust_selected_light_phase(self.selected_phase_index, -5.0)
+            return True
+
+        if self.light_inc_5_button_rect and self.light_inc_5_button_rect.collidepoint(mouse_pos):
+            self._adjust_selected_light_phase(self.selected_phase_index, 5.0)
+            return True
+
+        for phase_index, rect in self.light_phase_row_rects:
+            if rect.collidepoint(mouse_pos):
+                self.selected_phase_index = phase_index
+                return True
+
+        return False
+
+    def _draw_spawn_control_panel(self):
+        """Rysuje panel kontroli spawnerów dla wybranego skrzyżowania."""
+        self.spawn_decrease_button_rect = None
+        self.spawn_increase_button_rect = None
+
+        if self.selected_intersection is None:
+            return
+
+        intersection = self.network.get_intersection(self.selected_intersection)
+        if not intersection:
+            return
+
+        spawners = self._get_spawners_for_selected_intersection()
+        if not spawners:
+            return
+
+        # Pozycja panelu: pod panelem świateł jeśli istnieje
+        panel_x = self.width - 400
+        panel_y = 260
+
+        if not intersection.traffic_light_controller:
+            panel_y = 10
+
+        panel_width = 390
+        panel_height = max(150, 90 + len(spawners) * 20)
+
+        # Tło panelu
+        pygame.draw.rect(self.screen, (240, 240, 220),
+                        (panel_x, panel_y, panel_width, panel_height),
+                        border_radius=10)
+        pygame.draw.rect(self.screen, (100, 100, 100),
+                        (panel_x, panel_y, panel_width, panel_height),
+                        width=2, border_radius=10)
+
+        # Nagłówek
+        title = f"Spawners: {intersection.name}"
+        text = self.font.render(title, True, (0, 0, 0))
+        self.screen.blit(text, (panel_x + 10, panel_y + 10))
+
+        # Lista spawnerów
+        y = panel_y + 40
+        for idx, spawner in enumerate(spawners):
+            row_text = f"#{idx}  rate: {spawner.spawn_rate:.2f} pojazdów/s"
+            text = self.font_small.render(row_text, True, (0, 0, 0))
+            self.screen.blit(text, (panel_x + 10, y))
+            y += 20
+
+        # Przyciski zmiany częstotliwości
+        button_width = 80
+        button_height = 28
+        button_y = panel_y + panel_height - button_height - 12
+        mouse_pos = pygame.mouse.get_pos()
+
+        self.spawn_decrease_button_rect = pygame.Rect(panel_x + 10, button_y, button_width, button_height)
+        self.spawn_increase_button_rect = pygame.Rect(panel_x + 100, button_y, button_width, button_height)
+
+        dec_bg = (200, 220, 255) if self.spawn_decrease_button_rect.collidepoint(mouse_pos) else (220, 220, 220)
+        inc_bg = (200, 220, 255) if self.spawn_increase_button_rect.collidepoint(mouse_pos) else (220, 220, 220)
+
+        pygame.draw.rect(self.screen, dec_bg, self.spawn_decrease_button_rect, border_radius=6)
+        pygame.draw.rect(self.screen, (120, 120, 120), self.spawn_decrease_button_rect, width=2, border_radius=6)
+        pygame.draw.rect(self.screen, inc_bg, self.spawn_increase_button_rect, border_radius=6)
+        pygame.draw.rect(self.screen, (120, 120, 120), self.spawn_increase_button_rect, width=2, border_radius=6)
+
+        minus_text = self.font_small.render("-0.1", True, (0, 0, 0))
+        minus_rect = minus_text.get_rect(center=self.spawn_decrease_button_rect.center)
+        self.screen.blit(minus_text, minus_rect)
+
+        plus_text = self.font_small.render("+0.1", True, (0, 0, 0))
+        plus_rect = plus_text.get_rect(center=self.spawn_increase_button_rect.center)
+        self.screen.blit(plus_text, plus_rect)
+
+    def _handle_spawn_panel_click(self, mouse_pos: Tuple[int, int]) -> bool:
+        """Obsługuje kliknięcia przycisków panelu spawnerów."""
+        if self.spawn_decrease_button_rect and self.spawn_decrease_button_rect.collidepoint(mouse_pos):
+            self._adjust_selected_spawner_rate(-0.1)
+            return True
+
+        if self.spawn_increase_button_rect and self.spawn_increase_button_rect.collidepoint(mouse_pos):
+            self._adjust_selected_spawner_rate(0.1)
+            return True
+
+        return False
     
     def run(self):
         """Główna pętla wizualizacji."""
         running = True
-        selected_phase = 0  # Aktualnie wybrana faza do edycji
         
         while running:
             delta_time = self.clock.tick(60) / 1000.0  # Czas w sekundach
@@ -576,32 +764,21 @@ class RoadNetworkVisualizer:
                     elif event.key == pygame.K_t:
                         # Toggle panel kontroli
                         self.show_light_controls = not self.show_light_controls
-                    elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4,
-                                     pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
-                        # Wybór fazy (1-9)
-                        selected_phase = event.key - pygame.K_1
-                    elif event.key in [pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS]:
-                        # Zwiększ czas fazy
-                        self._adjust_selected_light_phase(selected_phase, 
-                                                          5.0 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 1.0)
-                    elif event.key in [pygame.K_MINUS, pygame.K_KP_MINUS]:
-                        # Zmniejsz czas fazy
-                        self._adjust_selected_light_phase(selected_phase,
-                                                          -5.0 if pygame.key.get_mods() & pygame.KMOD_SHIFT else -1.0)
-                    elif event.key == pygame.K_LEFTBRACKET:  # [
-                        self._adjust_selected_spawner_rate(-0.1)
-
-                    elif event.key == pygame.K_RIGHTBRACKET:  # ]
-                        self._adjust_selected_spawner_rate(0.1)
                 elif event.type == pygame.MOUSEMOTION:
                     self._update_hover(event.pos[0], event.pos[1])
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Lewy przycisk myszy
+                        if self._handle_light_panel_click(event.pos):
+                            continue
+
+                        if self._handle_spawn_panel_click(event.pos):
+                            continue
+
                         # Wybierz skrzyżowanie
                         if self.hovered_intersection is not None:
                             self.selected_intersection = self.hovered_intersection
                             self.show_light_controls = True
-                            selected_phase = 0
+                            self.selected_phase_index = 0
             
             # Aktualizuj pojazdy
             self.update_vehicles(delta_time)
@@ -630,9 +807,15 @@ class RoadNetworkVisualizer:
             
             # Rysuj panel informacyjny
             self._draw_info_panel()
+
+            # Rysuj podpowiedź wyboru (gdy brak paneli)
+            self._draw_selection_hint()
             
             # Rysuj panel kontroli świateł
             self._draw_light_control_panel()
+
+            # Rysuj panel kontroli spawnerów
+            self._draw_spawn_control_panel()
             
             # Rysuj overlay przepustowości na końcu (nad wszystkimi elementami)
             self._render_throughput_overlay()
